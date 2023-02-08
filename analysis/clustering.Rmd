@@ -1,0 +1,475 @@
+---
+title: 'Mineria de dades: PAC2 - Mètodes no supervisats'
+author: "Autor: Guillem Pla Bertran"
+date: "Novembre 2022"
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+    toc: yes
+    toc_depth: 2
+    includes:
+      in_header: header.html
+  word_document: default
+  pdf_document:
+    highlight: zenburn
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exercicis
+
+## Exercici 1
+
+### Joc de dades
+
+Els exercicis es realitzen sobre la base del joc de dades *Hawks* present en el paquet R *Stat2Data*.  
+
+Els estudiants i el professorat del Cornell College a Mount Vernon, Iowa, van recollir dades durant molts anys al mirador de falcons de l'estany MacBride, prop d'Iowa City, a l'estat d'Iowa. El joc de dades s'analitza és un subconjunt del conjunt de dades original, utilitzant només aquelles espècies per a les quals hi havia més de 10 observacions. Les dades es van recollir en mostres aleatòries de tres espècies diferents de falcons: Cua-roja, Esparver i Falcó de Cooper.  
+
+S'ha escollit aquest joc de dades per la seva semblança amb el joc de dades *penguins* i pel seu potencial a l'hora d'aplicar-li algoritmes de mineria de dades no supervisats.
+
+A continuació, procedim a carregar les dades:
+```{r message= FALSE, warning=FALSE}
+if (!require("Stat2Data")) install.packages("Stat2Data", repos="http://cran.us.r-project.org"); library("Stat2Data")
+data("Hawks")
+```
+
+Li podem donar una primera ullada a les dades disponibles:
+```{r message= FALSE, warning=FALSE}
+structure_hawks = str(Hawks)
+```
+
+Podem observar que disposem de **908 registres** o files amb **19 columnes** o variables. En aquest projecte ens centrarem en les columnes numèriques *Wing*, *Weight*, *Culmen*, *Hallux*.
+
+És important conèixer què vol dir cada variable. En la [documentació del *dataset*](https://www.rdocumentation.org/packages/Stat2Data/versions/2.0.0/topics/Hawks) podem obtenir aquesta informació. A continuació, es mostra una taula amb el conjunt de columnes disponibles i el seu significat:
+
+| **Atribut**  | **Descripció**                                                                                   |
+|--------------|--------------------------------------------------------------------------------------------------|
+| Month        | '8'=Setembre fins a '12'=Desembre                                                                |
+| Day          | Dia del mes                                                                                      |
+| Year         | Any: 1992-2003                                                                                   |
+| CaptureTime  | Moment de la captura (HH:MM)                                                                     |
+| ReleaseTime  | Moment de l'alliberament (HH:MM)                                                                 |
+| BandNumber   | ID del braçalet                                                                                  |
+| Species      | Espècie del falcó: 'CH'=Astor de Cooper, 'RT'=Cua-Roig, 'SS'=Esparver Nord-Americà               |
+| Age          | Maduresa del falcó: 'A'=Adult o 'I'=Immadur                                                      |
+| Sex          | Sexe del falcó: 'F'=Femella o 'M'=Mascle                                                         |
+| Wing         | Longitud (en mm.) de la ploma de l'ala primària des de la punta fins al canell a la qual s'uneix |
+| Weigth       | Pes corporal (en g.)                                                                             |
+| Culmen       | Longitud (en mm.) del bec superior des de la punta fins on xoca amb la part carnosa de l'ocell   |
+| Hallux       | Longitud (en mm) de l'urpa mortal                                                                |
+| Tail         | Mesura (en mm.) relacionada amb la longitud de la cua (inventada al MacBride Raptor Center)      |
+| StandardTail | Mesura estàndard de la longitud de la cua (en mm.)                                               |
+| Tarsus       | Longitud de l'os bàsic del peu (en mm.)                                                          |
+| WingPitFat   | Quantitat de greix a la fossa de l'ala                                                           |
+| KeelFat      | Quantitat de greix a l'estèrnum (mesurada pel tacte)                                             |
+| Crop         | Any de l'accident                                                                                |
+
+
+Per entendre el joc de dades es pot visualitzar la distribució dels seus valors.
+
+Primer, es carreguen els paquets necessaris per a pintar les gràfiques.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+if (!require("ggplot2")) install.packages("ggplot2"); library("ggplot2")
+if (!require("Rmisc")) install.packages("Rmisc"); library("Rmisc")
+if (!require("dplyr")) install.packages("dplyr"); library("dplyr")
+if (!require("xfun")) install.packages("xfun"); library("xfun")
+```
+
+Després, se seleccionen els atributs que es volen estudiar i es genera un gràfic amb les seues descripcions.
+
+Distribució de les variables relacionades amb el temps:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+histList <- list()
+
+dist_attr <- c("Month", "Day", "Year", "CaptureTime", "ReleaseTime")
+Hawks_aux <- Hawks[, which(names(Hawks) %in% dist_attr)]
+for(i in 1:ncol(Hawks_aux)){
+  col <- names(Hawks_aux)[i]
+  ggp <- ggplot(Hawks_aux, aes_string(x = col)) +
+    geom_histogram(stat = "count", ggtittle = "Comptador d'ocurrències per variable") 
+      histList[[i]] <- ggp  # afegim cada plot a la llista buida
+}
+multiplot(plotlist = histList, cols = 1)
+```
+
+Distribució de les variables amb informació bàsica sobre els falcons:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+histList <- list()
+
+dist_attr <- c("BandNumber", "Species", "Age", "Sex")
+Hawks_aux <- Hawks[, which(names(Hawks) %in% dist_attr)]
+for(i in 1:ncol(Hawks_aux)){
+  col <- names(Hawks_aux)[i]
+  ggp <- ggplot(Hawks_aux, aes_string(x = col)) +
+    geom_histogram(stat = "count", ggtittle = "Comptador d'ocurrències per variable") 
+      histList[[i]] <- ggp  # afegim cada plot a la llista buida
+}
+multiplot(plotlist = histList, cols = 1)
+```
+
+- La variable 'BandNumber' és un identificador i, com és lògic, cada variable apareix nomès un cop.
+- Es pot veure que la majoria de falcons no tenen codificat el sexe.
+
+Distribució de les variables a estudiar:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+histList <- list()
+
+dist_attr <- c("Wing", "Weight", "Culmen", "Hallux")
+Hawks_aux <- Hawks[, which(names(Hawks) %in% dist_attr)]
+for(i in 1:ncol(Hawks_aux)){
+  col <- names(Hawks_aux)[i]
+  ggp <- ggplot(Hawks_aux, aes_string(x = col)) +
+    geom_histogram(stat = "count", ggtittle = "Comptador d'ocurrències per variable") 
+      histList[[i]] <- ggp  # afegim cada plot a la llista buida
+}
+multiplot(plotlist = histList, cols = 1)
+```
+
+Distribució de la resta de variables:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+histList <- list()
+
+dist_attr <- c("Tail", "StandardTail", "Tarsus", "WingPitFat", "KeelFat", "Crop")
+Hawks_aux <- Hawks[, which(names(Hawks) %in% dist_attr)]
+for(i in 1:ncol(Hawks_aux)){
+  col <- names(Hawks_aux)[i]
+  ggp <- ggplot(Hawks_aux, aes_string(x = col)) +
+    geom_histogram(stat = "count", ggtittle = "Comptador d'ocurrències per variable") 
+      histList[[i]] <- ggp  # afegim cada plot a la llista buida
+}
+multiplot(plotlist = histList, cols = 1)
+```
+
+
+### K-*means*
+
+L'objectiu d'aquest projecte és generar i avaluar models de mineria de dades no supervisats per a classificar dades.
+
+Hi ha diversos algorismes d'agrupació que es poden fer servir. Un d'ells és **K-*means***. Segons la [Vikipèdia](https://ca.wikipedia.org/wiki/Algorisme_k-means) és un algorisme utilitzat en mineria de dades que té com a finalitat la partició d'un conjunt d'observacions en 'k' grups, en el qual cada observació pertany al grup més proper a la mitjana.
+
+A continuació es mostra l'aplicació de l'algorisme **K-*means*** i la seva avaluació i interpretació.
+
+#### Aplicació
+
+Per a implementar **K-*means*** cal donar el nombre de grups `k` que es faran servir per a agrupar les dades. 
+
+La quantitat de grups determina la qualitat de l'agrupació, per tant, cal escollir la millor `k` possible. Com que no es coneix d'entrada el nombre d'agrupacions ideals que cal fer s'ha de provar amb diversos valors de `k`.
+
+Primer de tot, carreguem els paquets necessaris:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+if (!require("cluster")) install.packages("cluster")
+library(cluster)
+```
+
+Els atributs que es volen fer servir per a la classificació són *Wing*, *Weight*, *Culmen*, *Hallux*. Per tant, es filtra el *dataset* perquè només contingui aquestes columnes:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+fit_attr <- c("Wing", "Weight", "Culmen", "Hallux")
+Hawks_fit <- Hawks[, which(names(Hawks) %in% fit_attr)]
+```
+
+A més, pot ser que aquestes variables continguin valors `NA`, `NaN` o `Inf` que no són compatibles amb l'aplicació del model. En conseqüència, s'han de netejar les dades.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+colSums(is.na(Hawks_fit))
+```
+
+Tal com s'explica en aquesta [web](https://www.statology.org/error-in-do_onenmeth-na-nan-inf-in-foreign-function-call/), una forma de solucionar aquest problema és suprimint els valors amb `NA` utilitzant la funció `na.omit()`.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+Hawks_fit <- na.omit(Hawks_fit)
+```
+
+Ara ja es pot aplicar l'algorisme **K-*means*** amb 2 clústers:
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+set.seed(1)
+Hawks_fit2 <- kmeans(Hawks_fit, 2)
+y_cluster2 <- Hawks_fit2$cluster
+```
+
+Ara es poden visualitzar els clústers fent servir la funció `clusplot`.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+clusplot(Hawks_fit, Hawks_fit2$cluster, color=TRUE, shade=TRUE, labels=2, lines=0)
+```
+
+Podem observar que hi ha valors extrems que alteren substancialment les agrupacions.
+
+A simple vista no sembla que s'hagin agrupat de forma correcta, però cal validar-ho fent servir els mètodes adequats.
+
+
+#### Qualitat de l'agrupació
+
+Com s'ha comentat anteriorment, no coneixem el nombre ideal de clústers que cal fer servir. Per això, cal aplicar **K-*means*** amb diferents valors de `k`.
+
+Un cop aplicat l'algorisme, és necessari obtindre una mesura que indiqui la qualitat de l'agrupació.
+
+Fem servir la mesura [***Silhouette***](https://en.wikipedia.org/wiki/Silhouette_(clustering)) que és un mètode per a interpretar i validar la consistència entre clústers de dades. Indica la similitud d'un objecte respecte a l'agrupació a la qual pertany. Els valors van des de -1 fins a 1, i com més proper a 1 més similitud hi ha.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+set.seed(1)
+d <- daisy(Hawks_fit) 
+results <- rep(0, 15)
+for (i in c(2,3,4,5,6,7,8,9,10,11,12,13,14,15))
+{
+  fit        <- kmeans(Hawks_fit, i)
+  y_cluster  <- fit$cluster
+  sk         <- silhouette(y_cluster, d)
+  results[i] <- mean(sk[,3])
+}
+```
+
+El gràfic següent mostra els valors de la silueta mitjana de cada prova. Això servirà per determinar quin nombre de clústers és el millor.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+plot(2:15,results[2:15],type="o",col="blue",pch=0,xlab="Nombre de clústers",ylab="Silhoutte")
+```
+
+En el joc de dades hi ha registres de tres espècies de falcons diferents. Això, en principi, hauria d'indicar que l'agrupació ideal és fa amb 3 grups.
+
+En canvi, en la gràfica obtinguda, podem observar com el valor de la **Silueta** és més alt amb **2 agrupacions**.
+
+Hi ha altres maneres per analitzar quin és el nombre òptim d'agrupacions. Es pot mirar quin és el millor, és a dir, aquell que té la menor suma dels quadrats de les distàncies dels punts de cada grup respecte al seu centre (withinss), amb la separació més gran entre centres de grups (betweenss).
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+results <- rep(0, 15)
+for (i in c(2,3,4,5,6,7,8,9,10,11,12,13,14,15))
+{
+  fit        <- kmeans(Hawks_fit, i)
+  results[i] <- fit$tot.withinss
+}
+plot(2:15,results[2:15],type="o",col="blue",pch=0,xlab="Nombre de clústers",ylab="tot.tot.withinss")
+```
+
+La forma habitual de seleccionar el nombre de clústers és aplicar el mètode *elbow* (colze). Se selecciona el nombre d'agrupacions a partir de quan la corba es comença a estabilitzar. En aquest cas és **7 clústers**.
+
+Una altra forma d'avaluar-ho és utilitzar la funció `kmeansruns` del paquet `fpc` que executa l’algorisme **K-*means*** com un conjunt de valors i selecciona el nombre de clústers que millor funcioni d’acord amb la silueta mitjana (asw) i Calinski-Harabasz (“ch”).
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+if (!require("fpc")) install.packages("fpc", repos="http://cran.us.r-project.org"); library('fpc')
+fit_ch  <- kmeansruns(Hawks_fit, krange = 1:15, criterion = "ch") 
+fit_asw <- kmeansruns(Hawks_fit, krange = 1:15, criterion = "asw")
+
+print(fit_ch$bestk)
+print(fit_asw$bestk)
+```
+
+Es pot observar com segons el mètode *Calinski-Harabasz* el millor valor de `k`és 15 i segons el mètode ASW és 2.
+
+Veiem que són resultats molt diferents, per tant, és important estudiar-ho amb més profunditat.
+
+Una bona estratègia és veure què passa per a diferents valors de k fent servir tots dos criteris.  
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+plot(1:15,fit_ch$crit,type="o",col="blue",pch=0,xlab="Nombre de clústers",ylab="Criteri Calinski-Harabasz")
+```
+
+En aquest cas el millor és 5, que és quan es comença a estabilitzar la corba.
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+plot(1:15,fit_asw$crit,type="o",col="blue",pch=0,xlab="Nombre de clústers",ylab="Criteri silueta mitja")
+```
+
+En aquest cas el nombre d'agrupacions òptim és 2.
+
+Malauradament, escollir el nombre de grups no és senzill. Amb les mesures obtingudes i amb el coneixement previ de les dades, segurament és millor escollir 2 agrupacions.
+
+Tot i això, com que en aquest exercici sabem que el nombre de grups òptim és 3 (el nombre d'espècies de falcons) volem visualitzar com es comporta el model quan s'utilitzen 3 clústers.
+
+```{r message= FALSE, warning=FALSE}
+hawks3clusters <- kmeans(Hawks_fit, 3)
+```
+```{r message= FALSE, warning=FALSE}
+# Weigth and Wing
+plot(Hawks_fit[c(1,2)], col=hawks3clusters$cluster, main="Classificació k-means")
+```
+```{r message= FALSE, warning=FALSE}
+plot(Hawks_fit[c(1,2)], col=as.factor(Hawks$Species), main="Classificació real")
+```
+
+```{r message= FALSE, warning=FALSE}
+# Hallux and Culmen
+plot(Hawks_fit[c(3,4)], col=hawks3clusters$cluster, main="Classificació k-means")
+```
+```{r message= FALSE, warning=FALSE}
+plot(Hawks_fit[c(3,4)], col=as.factor(Hawks$Species), main="Classificació real")
+```
+
+```{r message= FALSE, warning=FALSE}
+# Culmen and Wing
+plot(Hawks_fit[c(1,3)], col=hawks3clusters$cluster, main="Classificació k-means")
+```
+```{r message= FALSE, warning=FALSE}
+plot(Hawks_fit[c(1,3)], col=as.factor(Hawks$Species), main="Classificació real")
+```
+
+Podem observar que les classes reals estan molt barrejades entre les diferents variables, per tant, és possible que amb aquestes variables sigui complicat obtenir una bona classificació.
+
+
+## Exercici 2
+
+En aquest exercici s'estudien dos models de *clustering* basats en la densitat. Aquests són el DBSCAN i OPTICS. S'especialitzen a identificar zones d'alta concentració d'observacions separades entre si per zones amb una menor densitat d'observacions.
+
+### Algorisme DBSCAN
+
+L'algorisme [Density-based Spatial Clustering of Applications with Noise (DBSCAN)](https://en.wikipedia.org/wiki/DBSCAN)  és un algorisme d'agrupament de dades proposat per Martin Ester, Hans-Peter Kriegel, Jörg Sander i Xiowei Xu el 1996. Donats un grup de punts en l'espai, agrupa els punts amb molts veïns propers. 
+
+Inicialment necessita dos paràmetres, l'èpsilon $\epsilon$, que és el màxim radi de veïnatge i el *minPts*, que és el mínim nombre de punts a l'$\epsilon$-veïnatge d'un punt. DBSCAN construeix esferes de radi $\epsilon$ que incloguin almenys *minPts* punts.
+
+Primer de tot, carreguem els paquets necessaris:
+```{r message= FALSE, warning=FALSE}
+if (!require("dbscan")) install.packages("dbscan", repos="http://cran.us.r-project.org"); library('dbscan')
+```
+
+Ara realitzem una cerca per obtenir els paràmetres que ens donin el millor model (tenint en compte el mètode *Silhouette*): 
+```{r message= FALSE, warning=FALSE}
+d <- daisy(Hawks_fit)
+
+epsVec <- c(5, 5, 5, 5, 5,
+            10, 10, 10, 10, 10,
+            50, 50, 50, 50, 50,
+            100, 100, 100, 100, 100,
+            150, 150, 150, 150, 150,
+            200, 200, 200, 200, 200)
+minPtsVec <- c(5, 10, 15, 50, 100, 200,
+                5, 10, 15, 50, 100, 200,
+                5, 10, 15, 50, 100, 200,
+                5, 10, 15, 50, 100, 200,
+                5, 10, 15, 50, 100, 200)
+results_dbscan <- data.frame(eps = epsVec, minPts = minPtsVec, silhouette = double(length(epsVec)))
+
+for (i in 1:nrow(results_dbscan)) {
+  res <- dbscan(Hawks_fit, eps = epsVec[i], minPts = minPtsVec[i])
+  sk <- silhouette(res$cluster, d)
+  value <- tryCatch(
+        {
+          val <- sk[, 3]
+          mean(val)
+        },
+        error=function(cond) {
+          return(NA)
+        })
+  results_dbscan[i,]$silhouette <- value
+  print(value)
+}
+results_dbscan[order(results_dbscan$silhouette, decreasing=TRUE), ]
+```
+
+Podem observar que una de les millors combinacions és fent servir `eps=100` i `minPts=10`. A continuació, ens guardem aquest model:
+```{r message= FALSE, warning=FALSE}
+hawks_dbscan <- dbscan(Hawks_fit, eps = 100, minPts = 10)
+hawks_dbscan
+```
+
+
+### Algorisme OPTICS
+
+L'algorisme [Ordering Points to Identify the Clustering Structure (OPTICS)](https://en.wikipedia.org/wiki/OPTICS_algorithm) és un algorisme per trobar clústers basats en la densitat en dades estacials. Va ser presentat per Michael Ankerst, Markus M. Breunig, Hans-Peter Kriegel i Jörg Sander. La idea bàsica és similar a DBSCAN, però soluciona un dels seus principals problemes, que és haver de detectar agrupacions en dades amb densitat variable. Es pot entendre com a una generalització de DBSCAN.
+
+El que fa és assignar una distància d'assolibilitat a cada punt del *dataset*. Necessita un radi $\epsilon$ i un criteri de densitat *minPts*, però a diferència de DBSCAN el valor del radi no determina la formació de clústers, sinó que serveix per reduir la complexitat de càlcul. 
+
+```{r message= FALSE, warning=FALSE}
+hawks_optics <- optics(Hawks_fit)
+hawks_optics
+```
+
+Un **diagrama d'accessibilitat** o *reachability plot* és un gràfic que mostra de forma visual la distància d'accessibilitat de cada punt. Les valls representen clústers i els cims indiquen els punts que estan entre les agrupacions. Com més profunda és la vall, més dens és el clúster. Els punts entre agrupacions possiblement són *outliers*.
+```{r message= FALSE, warning=FALSE}
+plot(hawks_optics)
+```
+
+### Proves amb valors EPS
+
+També es pot extraure agrupacions similars a DBSCAN. Només cal indicar el paràmetre `eps_cl`. 
+
+En aquest cas, volem provar amb diversos valors per veure diferents tipus d'agrupacions.
+```{r message= FALSE, warning=FALSE}
+results_optics <- list()
+
+eps_vec <- c(.065, .15, 3, 10, 40, 75, 80, 82, 83, 85, 87, 90, 93, 95, 100, 300, 1000)
+for (i in 1:length(eps_vec)) {
+  res <- optics(Hawks_fit)
+  res <- extractDBSCAN(res, eps_cl = eps_vec[i])
+  results_optics[[i]] <- res
+  print(res)
+}
+```
+
+Podem observar que amb els valors `eps_cl` 40, 50 i 70 arribem a obtenir 3 clústers. Això podria indicar que la classificació s'ha fet correctament, ja que, tenim 3 espècies de falcons.
+
+A continuació, obtenim la *reachability plot* per al valor `eps_cl=40`:
+```{r message= FALSE, warning=FALSE}
+plot(results_optics[[6]])
+```
+
+També es pot representar els clústers mitjançant la funció `hullplot()`. Aquesta mostra les agrupacions amb formes convexes:
+```{r message= FALSE, warning=FALSE}
+hullplot(Hawks_fit, results_optics[[6]])
+```
+
+Es pot observar com els grups generats són bastant lògics, ja que, les zones més denses pertanyen a un mateix clúster i la resta es poden considerar *outliers*.
+
+Ara que ja s'han visualitzat les agrupacions es pot avaluar cada una d'elles per a veure quina és la millor.
+
+Es farà servir un mètode que s'ha vist a l'apartat anterior, ***Silhouette***.
+```{r message= FALSE, warning=FALSE}
+quality_list_optics <- c()
+d <- daisy(Hawks_fit)
+
+# Start at third element to avoid Silhouette error
+for (i in 1:length(results_optics)) {
+  sk <- silhouette(results_optics[[i]]$cluster, d)
+  value <- tryCatch(
+      {
+        val <- sk[, 3]
+        mean(val)
+      },
+      error=function(cond) {
+        return(NA)
+      })
+  quality_list_optics <- c(quality_list_optics, value)
+}
+
+quality_list_optics
+```
+
+Es pot afirmar que les agrupacions amb millor puntuació són les que s'han obtingut amb un `eps_cl` igual a 87, 90 i 93. Tots aquests fan la classificació amb només 2 clústers.
+```{r message= FALSE, warning=FALSE}
+plot(results_optics[[11]])
+```
+
+
+## Exercici 3
+
+### Comparació i conclusions dels resultats de K-*means* i DBSCAN/OPTICS
+
+Ara que ja hem aconseguit agrupacions utilitzant **K-*means*** i **DBSCAN/OPTICS**, podem procedir a comparar-los.
+
+En tots dos casos hem obtingut models que fan servir 2 clústers. Això contradiu una mica la suposició inicial, ja que, esperàvem que en tenir 3 espècies de falcons els models fessin servir 3 agrupacions.  Tot i això, els resultats són lògics, perquè és possible que hi hagi 2 espècies amb unes característiques molt similars. Cal tenir en compte que en aquest projecte s'ha decidit fer servir només les característiques *Wing*, *Weight*, *Culmen*, *Hallux*, és possible que usant altres variables haguessim obtingut uns resultats diferents.
+
+Durant tot el projecte s'ha fet servir la mesura ***Silhouette*** per avaluar la qualitat dels models. Els resultats obtinguts són bastant similars, tot i això, **K-*means*** ha donat més bon resultat, obtenint un **0.81**. En canvi, el millor model d'**OPTICS** n'ha aconseguit **0.72**. Per tant, ens quedem amb el model realitzat amb **K-*means**.
+
+### Pros i contres d'ambdós algorismes
+
+L'avantatge clar de l'algorisme **K-*means*** és que ha obtingut el millor resultat. Els desavantatges són que cal escollir el nombre d'agrupacions abans d'executar-lo. Això implica haver de fer diverses proves i comprovar quina és la millor executant diferents mesures de qualitat. Tot i això, no sempre és fàcil escollir una bona `k`, perquè pot ser que les diferents mesures donin resultats diferents. Un altre inconvenient és que només pot identificar *clústers* amb forma circular.
+
+L'avantatge de **DBSCAN/OPTICS** és que no cal seleccionar el nombre de clústers abans d'executar-lo. També són capaços d'identificar *clústers* amb qualsevol forma geomètrica i són bons identificant valors extrems, que en el cas anterior poden distorsionar les agrupacions. El principal inconvenient és que cal fer diverses proves per trobar quins són els paràmetres d'entrada adients. Segurament per manca de proves no s'ha pogut aconseguir un model millor que el de K-*means*.
+
+
+## Exercici 4  
+
+### Avantatges de K-*means* i DBSCAN/OPTICS
+
+Alguns dels avantatges de l'algorisme **K-*means*** són que és relativament simple d'implementar [1](https://developers.google.com/machine-learning/clustering/algorithm/advantages-disadvantages), és fàcil de fer-lo servir amb conjunts de dades grans i que garanteix que convergeix. També és important remarcar que està disponible a molts llenguatges de programació [2](https://automaticaddison.com/advantages-of-k-means-clustering/) i que realitza els càlculs ràpidament.
+
+Els principals beneficis dels algorismes **DBSCAN/OPTICS** són que són capaços d'identificar agrupacions que tinguin qualsevol forma geomètrica, identifiquen molt bé els *outliers* i no cal que es prefixi el nombre de *clústers*. Pel que fa a l'algorisme **OPTICS** permet que el valor de densitat sigui variable en un *dataset*.
+
+### Inconvenients de K-*means* i DBSCAN/OPTICS
+
+Els inconvenients de **K-*means*** són que només es pot fer servir amb formes geomètriques circulars i que no tracta bé els *outliers*. A més, cal fixar abans el nombre d'agrupaments que volem, això pot ser un problema, ja que, cal executar-lo diverses vegades i comprovar diverses mètriques com ***Silhouette***, **silueta mitjana (asw)**  i ***Calinski-Harabasz (“ch”)***.
+
+Els desavantatges de **DBSCAN/OPTICS** són que costa trobar els paràmetres d'entrada que resultin en un bon model d'agrupació. Això comporta haver de realitzar múltiples combinacions de valors fins a trobar la més adequada. A més, l'algorisme **DBSCAN** pressuposa que la densitat és un valor constant, i per això, té problemes quan la densitat en un conjunt de dades és variable.
+
+Aquests algorismes tenen en comú que permeten executar-los si contenen valors `NA`, `NaN` o `Inf`, i per tant, cal fer un pretractament de les dades abans d'executar-los.
+
+### Propostes per mitigar desavantatges
+
+Els principals inconvenients de tots dos algorismes és que cal fer un preprocessament de les dades i que cal provar múltiples valors fins a trobar el millor model.
+
+La forma de pal·liar la pèrdua de temps que això suposa és tenir preparades unes *pipelines* que netegin les dades i executin els models múltiples cops fins a trobar el millor. Aquestes caldria executar sempre que es vulgui tractar amb models no supervisats.
